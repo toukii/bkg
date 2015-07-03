@@ -56,11 +56,14 @@ func WalkDir(dirPth, suffix string) (dirs []string, err error) {
 	return dirs, err
 }
 
-func CMD() {
-	output, err := exec.Command("go", "install").Output()
-	// err := cmd.Run()
+func CMD(file string) {
+	path, err := exec.LookPath(file)
+	fmt.Println(path)
+	cmd := exec.Command("go", "install")
+	err = cmd.Run()
 	if nil != err {
 		fmt.Println(err)
 	}
-	fmt.Println(string(output))
+	output, _ := cmd.Output()
+	fmt.Println(string(output), output)
 }
