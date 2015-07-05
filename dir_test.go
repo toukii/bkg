@@ -16,5 +16,6 @@ import (
 // }
 
 func TestCMD(t *testing.T) {
-	CMD("E:/ItemForGo/src/github.com/shaalx/echo/oauth2")
+	// CMD("E:/ItemForGo/src/github.com/shaalx/echo/oauth2")
+	CMD2()
 }

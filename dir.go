@@ -67,3 +67,14 @@ func CMD(file string) {
 	output, _ := cmd.Output()
 	fmt.Println(string(output), output)
 }
+
+func CMD2() {
+	cmd := exec.Command("cmd", "/c", "dir")
+	cmd.Stdout = os.Stdout
+	err := cmd.Run()
+	if nil != err {
+		fmt.Println(err)
+	}
+	// output, _ := cmd.Output()
+	// fmt.Println(string(output), output)
+}
