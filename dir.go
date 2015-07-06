@@ -72,6 +72,7 @@ func CMD2() {
 	cmd := exec.Command("cmd", "/c", "dir")
 	cmd.Stdout = os.Stdout
 	err := cmd.Run()
+
 	if nil != err {
 		fmt.Println(err)
 	}
