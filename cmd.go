@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	// "path/filepath"
+	"path/filepath"
 	"strings"
 )
 
@@ -37,6 +37,8 @@ func targetPath(basePath string) []string {
 				continue
 			}
 			targetPaths = append(targetPaths, fileInfo.Name())
+			// subTargetPaths := targetPath(basePath + "\\" + fileInfo.Name())
+			// targetPaths = append(targetPaths, subTargetPaths[1:]...)
 		}
 	}
 	return targetPaths
@@ -47,12 +49,12 @@ func executeCmd(basePath, targetPath, command string) {
 	if checkErr(err) {
 		return
 	}
-	// absTargetPath, err := filepath.Abs(targetPath)
-	// if checkErr(err) {
-	// 	log.Printf("AbsError (%s): %s", targetPath, err)
-	// 	return
-	// }
-	err = os.Chdir(targetPath)
+	absTargetPath, err := filepath.Abs(targetPath)
+	if checkErr(err) {
+		log.Printf("AbsError (%s): %s", targetPath, err)
+		return
+	}
+	err = os.Chdir(absTargetPath)
 	if checkErr(err) {
 		return
 	}
