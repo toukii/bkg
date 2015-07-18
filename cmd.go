@@ -42,8 +42,9 @@ func targetPath(basePath string) []string {
 	if !checkErr(err) {
 		targetPaths = append(targetPaths, base)
 	}
-	log.Printf("current Dir:%s\n", base)
-	executeCmdHere(command)
+	log.Printf("current Dir:%s", base)
+	executed := executeCmdHere(command)
+	log.Printf("%v\n",executed)
 
 	for _, v := range subDirs {
 		// log.Printf("subDirs:%s", v.Name())
@@ -61,7 +62,7 @@ func targetPath(basePath string) []string {
 	return targetPaths
 }
 
-func executeCmdHere(command string) {
+func executeCmdHere(command string) bool {
 	cmdWithArgs := strings.Split(command, " ")
 	var cmd *exec.Cmd
 	cmdLength := len(cmdWithArgs)
@@ -76,9 +77,10 @@ func executeCmdHere(command string) {
 	result, err := cmd.Output()
 	if err != nil {
 		log.Printf("CmdRunError(cmd=%s, agrs=%v): %s", realCmd, args, err)
-		return
+		return false
 	}
 	log.Printf("Output(cmd=%s, agrs=%v): %v", realCmd, args, string(result))
+	return true
 }
 
 func executeCmd(basePath, targetPath, command string) {
