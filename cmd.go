@@ -42,9 +42,22 @@ func targetPath(basePath string) []string {
 	if !checkErr(err) {
 		targetPaths = append(targetPaths, base)
 	}
-	log.Printf("current Dir:%s", base)
-	executed := executeCmdHere(command)
-	log.Printf("%v\n",executed)
+
+	executing := false
+	for _, v := range subDirs {
+		fileInfo := v.(os.FileInfo)
+		if fileInfo.IsDir() {
+			continue
+		}
+		if strings.Contains(fileInfo.Name(), ".go") {
+			executing = true
+		}
+	}
+	if executing {
+		log.Printf("current Dir:%s", base)
+		executed := executeCmdHere(command)
+		log.Printf("%v\n", executed)
+	}
 
 	for _, v := range subDirs {
 		// log.Printf("subDirs:%s", v.Name())
