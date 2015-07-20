@@ -4,13 +4,24 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"path/filepath"
+	// "path/filepath"
 	"strings"
+	"time"
 )
 
 var (
-	command = "go install"
+	command    = "go install"
+	ResultChan chan Result
 )
+
+type Result struct {
+	dir string
+	ok  bool
+}
+
+func init() {
+	ResultChan = make(chan Result, 20)
+}
 
 func checkErr(err error) bool {
 	if nil != err {
@@ -54,9 +65,11 @@ func targetPath(basePath string) []string {
 		}
 	}
 	if executing {
-		log.Printf("current Dir:%s", base)
+		// log.Printf("current Dir:%s", base)
 		executed := executeCmdHere(command)
-		log.Printf("%v\n", executed)
+		baseP, _ := os.Getwd()
+		result := Result{dir: baseP, ok: executed}
+		ResultChan <- result
 	}
 
 	for _, v := range subDirs {
@@ -87,61 +100,32 @@ func executeCmdHere(command string) bool {
 	} else {
 		cmd = exec.Command(realCmd)
 	}
-	result, err := cmd.Output()
+	_, err := cmd.Output()
 	if err != nil {
 		log.Printf("CmdRunError(cmd=%s, agrs=%v): %s", realCmd, args, err)
 		return false
 	}
-	log.Printf("Output(cmd=%s, agrs=%v): %v", realCmd, args, string(result))
+	// log.Printf("Output(cmd=%s, agrs=%v): %v", realCmd, args, string(result))
 	return true
 }
 
-func executeCmd(basePath, targetPath, command string) {
-	err := os.Chdir(basePath)
-	if checkErr(err) {
-		return
+func logging() {
+	for {
+		select {
+		case result := <-ResultChan:
+			log.Printf("[LOG] %v\n", result)
+		}
 	}
-	absTargetPath, err := filepath.Abs(targetPath)
-	if checkErr(err) {
-		log.Printf("AbsError (%s): %s", targetPath, err)
-		return
-	}
-	err = os.Chdir(absTargetPath)
-	if checkErr(err) {
-		return
-	}
-
-	cmdWithArgs := strings.Split(command, " ")
-	var cmd *exec.Cmd
-	cmdLength := len(cmdWithArgs)
-	realCmd := cmdWithArgs[0]
-	var args []string
-	if cmdLength > 1 {
-		args = cmdWithArgs[1:cmdLength]
-		cmd = exec.Command(realCmd, args...)
-	} else {
-		cmd = exec.Command(realCmd)
-	}
-	result, err := cmd.Output()
-	if err != nil {
-		log.Printf("CmdRunError(dir=%s, cmd=%s, agrs=%v): %s", targetPath, realCmd, args, err)
-		return
-	}
-	log.Printf("Output(dir=%s, cmd=%s, agrs=%v): %v", targetPath, realCmd, args, string(result))
 }
-
 func main() {
 	basePath, err := os.Getwd()
 	if checkErr(err) {
 		return
 	}
 	log.Printf("Base Path: %s", basePath)
-
+	go logging()
 	targetPath(basePath)
-	// targetPaths := targetPath(basePath)
 
-	// for _, v := range targetPaths {
-	// 	executeCmd(basePath, v, command)
-	// }
-	// log.Println("The command(s) execution has been finished.")
+	time.Sleep(1e8)
+	close(ResultChan)
 }
