@@ -81,7 +81,7 @@ func targetPath(basePath string) []string {
 				continue
 			}
 			// targetPaths = append(targetPaths, fileInfo.Name())
-			subTargetPaths := targetPath(fileInfo.Name())
+			subTargetPaths := targetPath(basePath + "\\" + fileInfo.Name())
 			targetPaths = append(targetPaths, subTargetPaths[1:]...)
 		}
 	}
