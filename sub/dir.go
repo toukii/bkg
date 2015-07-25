@@ -1,4 +1,4 @@
-package bkg
+package sub
 
 import (
 	"fmt"
