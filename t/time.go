@@ -4,11 +4,11 @@ import (
 	"time"
 )
 
-func Now() string {
-	loc, err := time.LoadLocation("Asia/Shanghai")
+func LocNow(location string) *time.Time {
+	loc, err := time.LoadLocation(location) //"Asia/Shanghai"
 	if nil != err {
-		return ""
+		return nil
 	}
 	tp := time.Unix(time.Now().Unix(), 0).In(loc)
-	return tp.String()
+	return &tp
 }
