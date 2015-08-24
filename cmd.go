@@ -100,9 +100,9 @@ func executeCmdHere(command string) bool {
 	} else {
 		cmd = exec.Command(realCmd)
 	}
-	_, err := cmd.Output()
+	result, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Printf("CmdRunError(cmd=%s, agrs=%v): %s", realCmd, args, err)
+		log.Printf("CmdRunError(cmd=%s, agrs=%v): %s\n%s", realCmd, args, err, string(result))
 		return false
 	}
 	// log.Printf("Output(cmd=%s, agrs=%v): %v", realCmd, args, string(result))
