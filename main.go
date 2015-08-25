@@ -78,9 +78,12 @@ func searchDir(dir string) {
 
 func logging() {
 	var info *Info
-	now := 1
-	after := 1
-	ticker := time.NewTicker(1e9)
+	now := 0
+	after := 0
+	defer func() {
+		fmt.Printf("install: %d.", now)
+	}()
+	ticker := time.NewTicker(12e8)
 	for {
 		select {
 		case info = <-installInfo:
@@ -102,6 +105,6 @@ func main() {
 		os.Exit(-1)
 	}
 	go searchDir(wd)
-	time.Sleep(1e8)
+	time.Sleep(2e8)
 	logging()
 }
