@@ -41,7 +41,7 @@ var (
 )
 
 func init() {
-	installInfo = make(chan *Info, 10)
+	installInfo = make(chan *Info, 50)
 	command = exc.NewCMD("go install")
 
 }
@@ -105,6 +105,6 @@ func main() {
 		os.Exit(-1)
 	}
 	go searchDir(wd)
-	time.Sleep(2e8)
+	time.Sleep(10e8)
 	logging()
 }
