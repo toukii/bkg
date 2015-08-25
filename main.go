@@ -43,6 +43,7 @@ var (
 func init() {
 	installInfo = make(chan *Info, 10)
 	command = exc.NewCMD("go install")
+
 }
 
 func searchDir(dir string) {
@@ -60,7 +61,7 @@ func searchDir(dir string) {
 			continue
 		}
 		if it.IsDir() {
-			searchDir(filepath.Join(dir, it.Name()))
+			go searchDir(filepath.Join(dir, it.Name()))
 		}
 		if strings.Contains(it.Name(), ".go") && !excuted {
 			b, err := command.Cd(dir).Do()
@@ -73,15 +74,24 @@ func searchDir(dir string) {
 			command.Cd("..")
 		}
 	}
-
 }
 
 func logging() {
 	var info *Info
+	now := 1
+	after := 1
+	ticker := time.NewTicker(1e9)
 	for {
 		select {
 		case info = <-installInfo:
 			fmt.Println(info.String())
+			now++
+		case <-ticker.C:
+			after++
+			if now < after {
+				return
+			}
+			after = now
 		}
 	}
 }
@@ -91,8 +101,7 @@ func main() {
 	if exc.Checkerr(err) {
 		os.Exit(-1)
 	}
-	go logging()
-	searchDir(wd)
-	time.Sleep(1e9)
-	close(installInfo)
+	go searchDir(wd)
+	time.Sleep(1e8)
+	logging()
 }
