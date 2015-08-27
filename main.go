@@ -61,7 +61,7 @@ func searchDir(dir string) {
 			continue
 		}
 		if it.IsDir() {
-			go searchDir(filepath.Join(dir, it.Name()))
+			/*go*/ searchDir(filepath.Join(dir, it.Name()))
 		}
 		if strings.Contains(it.Name(), ".go") && !excuted {
 			b, err := command.Cd(dir).Do()
