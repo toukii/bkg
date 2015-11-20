@@ -63,7 +63,7 @@ func searchDir(dir string) {
 		if it.IsDir() {
 			/*go*/ searchDir(filepath.Join(dir, it.Name()))
 		}
-		if strings.Contains(it.Name(), ".go") && !excuted {
+		if strings.HasSuffix(it.Name(), ".go") && !excuted {
 			b, err := command.Cd(dir).Do()
 			if nil != err {
 				installInfo <- NewInfo(dir, false, goutils.ToString(b))
