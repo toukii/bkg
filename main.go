@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/everfore/exc"
-	"github.com/shaalx/goutils"
+	"github.com/toukii/goutils"
 	"os"
 	"path/filepath"
 	"strings"
