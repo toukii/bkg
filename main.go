@@ -104,7 +104,6 @@ func main() {
 	if exc.Checkerr(err) {
 		os.Exit(-1)
 	}
-	go searchDir(wd)
-	time.Sleep(10e8)
+	searchDir(wd)
 	logging()
 }
