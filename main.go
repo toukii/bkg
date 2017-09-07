@@ -2,12 +2,14 @@ package main
 
 import (
 	"fmt"
-	"github.com/everfore/exc"
-	"github.com/toukii/goutils"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/everfore/exc"
+	"github.com/toukii/goutils"
+	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 type Info struct {
@@ -38,12 +40,12 @@ func NewInfo(dir string, ok bool, info string) *Info {
 var (
 	command     *exc.CMD
 	installInfo chan *Info
+	dir         = kingpin.Arg("./", "go build -R path").String()
 )
 
 func init() {
 	installInfo = make(chan *Info, 50)
 	command = exc.NewCMD("go install")
-
 }
 
 func searchDir(dir string) {
@@ -100,10 +102,11 @@ func logging() {
 }
 
 func main() {
+	_ = kingpin.Parse()
 	wd, err := os.Getwd()
 	if exc.Checkerr(err) {
 		os.Exit(-1)
 	}
-	searchDir(wd)
+	searchDir(filepath.Join(wd, *dir))
 	logging()
 }
