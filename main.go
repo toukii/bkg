@@ -23,8 +23,8 @@ func (i Info) String() string {
 		return fmt.Sprintf("[SUCCESS]: %s", i.dir)
 	}
 	length := len(i.info)
-	if length > 150 {
-		length = 150
+	if length > 850 {
+		length = 850
 	}
 	return fmt.Sprintf("[FAIL]: %s \n%s [more]...", i.dir, i.info[:length])
 }
