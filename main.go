@@ -87,7 +87,7 @@ func pull(pkgs []string) {
 			continue
 		}
 		go func(pkg string) {
-			exc.NewCMD("pull -r " + pkg[11:]).Debug().Execute()
+			exc.NewCMD("pull -r " + pkg).Debug().Execute()
 			wg.Done()
 		}(pkg)
 	}
