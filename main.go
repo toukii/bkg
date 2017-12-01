@@ -5,10 +5,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/everfore/exc"
 	"github.com/toukii/goutils"
+	"github.com/toukii/jsnm"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -25,8 +27,9 @@ func (i Info) String() string {
 	length := len(i.info)
 	if length > 850 {
 		length = 850
+		return fmt.Sprintf("[FAIL]: %s \n%s [more]...", i.dir, i.info[:length])
 	}
-	return fmt.Sprintf("[FAIL]: %s \n%s [more]...", i.dir, i.info[:length])
+	return fmt.Sprintf("[FAIL]: %s \n%s", i.dir, i.info)
 }
 
 func NewInfo(dir string, ok bool, info string) *Info {
@@ -35,6 +38,28 @@ func NewInfo(dir string, ok bool, info string) *Info {
 		ok:   ok,
 		info: info,
 	}
+}
+
+func errPkgs(golist []byte) []string {
+	js := jsnm.BytesFmt(golist)
+	if arrs := js.Get("DepsErrors").Arr(); len(arrs) > 0 {
+		pkgs := make([]string, 0, 5)
+		pkgm := make(map[string]bool)
+		pkgm[js.Get("ImportPath").RawData().String()] = true
+		for _, arr := range arrs {
+			depkgs := arr.Get("ImportStack").Arr()
+			for _, pkg := range depkgs {
+				pkgName := pkg.RawData().String()
+				if _, ex := pkgm[pkgName]; ex {
+					continue
+				}
+				pkgm[pkgName] = true
+				pkgs = append(pkgs, pkgName)
+			}
+		}
+		return pkgs
+	}
+	return nil
 }
 
 var (
@@ -48,7 +73,30 @@ func init() {
 	command = exc.NewCMD("go install")
 }
 
+func pull(pkgs []string) {
+	size := len(pkgs)
+	if size <= 0 {
+		return
+	}
+	var wg sync.WaitGroup
+	wg.Add(size)
+	for _, pkg := range pkgs {
+		if !strings.HasPrefix(pkg, "github.com") {
+			fmt.Printf("pkg %s is not supported.\n", pkg)
+			wg.Done()
+			continue
+		}
+		go func(pkg string) {
+			exc.NewCMD("pull -r " + pkg[11:]).Debug().Execute()
+			wg.Done()
+		}(pkg)
+	}
+	wg.Wait()
+}
+
 func searchDir(dir string) {
+	bs, _ := exc.NewCMD("go list -json").Do()
+	pull(errPkgs(bs))
 	file, err := os.Open(dir)
 	if exc.Checkerr(err) {
 		return
@@ -83,7 +131,7 @@ func logging() {
 	now := 0
 	after := 0
 	defer func() {
-		fmt.Printf("install: %d.", now)
+		fmt.Printf("install: %d.\n", now)
 	}()
 	ticker := time.NewTicker(12e8)
 	for {
