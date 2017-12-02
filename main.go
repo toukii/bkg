@@ -9,8 +9,10 @@ import (
 	"time"
 
 	"github.com/everfore/exc"
+	cr "github.com/fatih/color"
 	"github.com/toukii/goutils"
 	"github.com/toukii/jsnm"
+	// "github.com/toukii/jsnm2"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -20,16 +22,21 @@ type Info struct {
 	info string
 }
 
+func TrimGopath(pth string) string {
+	return strings.TrimPrefix(pth, os.Getenv("GOPATH")+"/src/")
+}
+
 func (i Info) String() string {
 	if i.ok {
-		return fmt.Sprintf("[SUCCESS]: %s", i.dir)
+		return cr.GreenString("[SUCCESS] ") + cr.CyanString(TrimGopath(i.dir))
 	}
+	failMsg := cr.RedString("[FAIL] ") + cr.YellowString(TrimGopath(i.dir))
 	length := len(i.info)
 	if length > 850 {
 		length = 850
-		return fmt.Sprintf("[FAIL]: %s \n%s [more]...", i.dir, i.info[:length])
+		return fmt.Sprintf("%s --> %s %s", failMsg, i.info[:length], cr.CyanString("[more]..."))
 	}
-	return fmt.Sprintf("[FAIL]: %s \n%s", i.dir, i.info)
+	return fmt.Sprintf("%s --> %s", failMsg, i.info)
 }
 
 func NewInfo(dir string, ok bool, info string) *Info {
@@ -62,6 +69,21 @@ func errPkgs(golist []byte) []string {
 	return nil
 }
 
+func imports(golist []byte) []string {
+	arrs := jsnm.BytesFmt(golist).Get("Imports").Arr()
+	pkgs := make([]string, 0, 5)
+	i := 1
+	for _, arr := range arrs {
+		pkg := arr.RawData().String()
+		if strings.HasPrefix(pkg, "github.com") || strings.HasPrefix(pkg, "gopkg.in") || strings.HasPrefix(pkg, "golang.org") {
+			pkgs = append(pkgs, fmt.Sprintf("\t%d. %s", i, arr.RawData().String()))
+			i++
+		}
+	}
+	fmt.Println(cr.HiCyanString("import packages:\n"), cr.HiGreenString(strings.Join(pkgs, "\n")))
+	return pkgs
+}
+
 var (
 	command     *exc.CMD
 	installInfo chan *Info
@@ -81,13 +103,24 @@ func pull(pkgs []string) {
 	var wg sync.WaitGroup
 	wg.Add(size)
 	for _, pkg := range pkgs {
+		if strings.HasPrefix(pkg, "gopkg.in") || strings.HasPrefix(pkg, "golang.org") {
+			go func() {
+				exc.NewCMD("go get " + pkg).Debug().Do()
+				wg.Done()
+			}()
+			continue
+		}
 		if !strings.HasPrefix(pkg, "github.com") {
-			fmt.Printf("pkg %s is not supported.\n", pkg)
+			cr.Red("pkg %s is not supported.\n", pkg)
 			wg.Done()
 			continue
 		}
 		go func(pkg string) {
-			exc.NewCMD("pull -r " + pkg).Debug().Execute()
+			if strings.HasPrefix(pkg, "github.com/toukii") || strings.HasPrefix(pkg, "github.com/everfore") || strings.HasPrefix(pkg, "github.com/datc/") {
+				exc.NewCMD("pull " + pkg).Debug().Do()
+			} else {
+				exc.NewCMD("pull -r " + pkg).Debug().Do()
+			}
 			wg.Done()
 		}(pkg)
 	}
@@ -95,8 +128,6 @@ func pull(pkgs []string) {
 }
 
 func searchDir(dir string) {
-	bs, _ := exc.NewCMD("go list -json").Do()
-	pull(errPkgs(bs))
 	file, err := os.Open(dir)
 	if exc.Checkerr(err) {
 		return
@@ -114,6 +145,11 @@ func searchDir(dir string) {
 			/*go*/ searchDir(filepath.Join(dir, it.Name()))
 		}
 		if strings.HasSuffix(it.Name(), ".go") && !excuted {
+			bs, err := exc.NewCMD("go list -json").Do()
+			if len(bs) > 0 {
+				imports(bs)
+				pull(errPkgs(bs))
+			}
 			b, err := command.Cd(dir).Do()
 			if nil != err {
 				installInfo <- NewInfo(dir, false, goutils.ToString(b))
