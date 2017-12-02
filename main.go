@@ -204,7 +204,7 @@ func main() {
 	_ = kingpin.Parse()
 	wd, err := os.Getwd()
 	if goutils.CheckErr(err) {
-		os.Exit(-1)
+		return
 	}
 	searchDir(filepath.Join(wd, *dir))
 	logging()
