@@ -9,8 +9,10 @@ import (
 	"time"
 
 	"github.com/everfore/exc"
+	cr "github.com/fatih/color"
 	"github.com/toukii/goutils"
 	"github.com/toukii/jsnm"
+	// "github.com/toukii/jsnm2"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -20,16 +22,21 @@ type Info struct {
 	info string
 }
 
+func TrimGopath(pth string) string {
+	return strings.TrimPrefix(pth, os.Getenv("GOPATH")+"/src/")
+}
+
 func (i Info) String() string {
 	if i.ok {
-		return fmt.Sprintf("[SUCCESS]: %s", i.dir)
+		return cr.GreenString("[SUCCESS] ") + cr.CyanString(TrimGopath(i.dir))
 	}
+	failMsg := cr.RedString("[FAIL] ") + cr.YellowString(TrimGopath(i.dir))
 	length := len(i.info)
 	if length > 850 {
 		length = 850
-		return fmt.Sprintf("[FAIL]: %s \n%s [more]...", i.dir, i.info[:length])
+		return fmt.Sprintf("%s --> %s %s", failMsg, i.info[:length], cr.CyanString("[more]..."))
 	}
-	return fmt.Sprintf("[FAIL]: %s \n%s", i.dir, i.info)
+	return fmt.Sprintf("%s --> %s", failMsg, i.info)
 }
 
 func NewInfo(dir string, ok bool, info string) *Info {
@@ -57,9 +64,35 @@ func errPkgs(golist []byte) []string {
 				pkgs = append(pkgs, pkgName)
 			}
 		}
+		if len(pkgs) > 0 {
+			fmt.Println(cr.HiCyanString("missed import packages:\n"), cr.RedString(displayPkgs(pkgs)))
+		}
 		return pkgs
 	}
 	return nil
+}
+
+func displayPkgs(pkgs []string) string {
+	newPkgs := make([]string, len(pkgs))
+	for i, pkg := range pkgs {
+		newPkgs[i] = fmt.Sprintf("\t%d. %s", i+1, pkg)
+	}
+	return strings.Join(newPkgs, "\n")
+}
+
+func imports(golist []byte) []string {
+	arrs := jsnm.BytesFmt(golist).Get("Imports").Arr()
+	pkgs := make([]string, 0, 5)
+	for _, arr := range arrs {
+		pkg := arr.RawData().String()
+		if strings.HasPrefix(pkg, "github.com") || strings.HasPrefix(pkg, "gopkg.in") || strings.HasPrefix(pkg, "golang.org") {
+			pkgs = append(pkgs, pkg)
+		}
+	}
+	if len(pkgs) > 0 {
+		fmt.Println(cr.HiCyanString("import packages:\n"), cr.HiGreenString(displayPkgs(pkgs)))
+	}
+	return pkgs
 }
 
 var (
@@ -81,13 +114,24 @@ func pull(pkgs []string) {
 	var wg sync.WaitGroup
 	wg.Add(size)
 	for _, pkg := range pkgs {
+		if strings.HasPrefix(pkg, "gopkg.in") || strings.HasPrefix(pkg, "golang.org") {
+			go func() {
+				exc.NewCMD("go get " + pkg).Debug().DoTimeout(20e9)
+				wg.Done()
+			}()
+			continue
+		}
 		if !strings.HasPrefix(pkg, "github.com") {
-			fmt.Printf("pkg %s is not supported.\n", pkg)
+			cr.Red("pkg %s is not supported.\n", pkg)
 			wg.Done()
 			continue
 		}
 		go func(pkg string) {
-			exc.NewCMD("pull -r " + pkg).Debug().Execute()
+			if strings.HasPrefix(pkg, "github.com/toukii") || strings.HasPrefix(pkg, "github.com/everfore") || strings.HasPrefix(pkg, "github.com/datc/") {
+				exc.NewCMD("pull " + pkg).Debug().DoTimeout(20e9)
+			} else {
+				exc.NewCMD("pull -r " + pkg).Debug().DoTimeout(20e9)
+			}
 			wg.Done()
 		}(pkg)
 	}
@@ -95,14 +139,12 @@ func pull(pkgs []string) {
 }
 
 func searchDir(dir string) {
-	bs, _ := exc.NewCMD("go list -json").Do()
-	pull(errPkgs(bs))
 	file, err := os.Open(dir)
-	if exc.Checkerr(err) {
+	if goutils.CheckErr(err) {
 		return
 	}
 	subdirs, err := file.Readdir(-1)
-	if exc.Checkerr(err) {
+	if goutils.CheckErr(err) {
 		return
 	}
 	excuted := false
@@ -114,6 +156,11 @@ func searchDir(dir string) {
 			/*go*/ searchDir(filepath.Join(dir, it.Name()))
 		}
 		if strings.HasSuffix(it.Name(), ".go") && !excuted {
+			bs, err := exc.NewCMD("go list -json").Do()
+			if len(bs) > 0 {
+				imports(bs)
+				pull(errPkgs(bs))
+			}
 			b, err := command.Cd(dir).Do()
 			if nil != err {
 				installInfo <- NewInfo(dir, false, goutils.ToString(b))
@@ -129,15 +176,19 @@ func searchDir(dir string) {
 func logging() {
 	var info *Info
 	now := 0
+	success := 0
 	after := 0
 	defer func() {
-		fmt.Printf("install: %d.\n", now)
+		fmt.Printf("scan %s go pkgs, go install success %s.\n", cr.RedString("%d", now), cr.HiGreenString("%d", success))
 	}()
-	ticker := time.NewTicker(12e8)
+	ticker := time.NewTicker(1e8)
 	for {
 		select {
 		case info = <-installInfo:
 			fmt.Println(info.String())
+			if info.ok {
+				success++
+			}
 			now++
 		case <-ticker.C:
 			after++
@@ -152,8 +203,8 @@ func logging() {
 func main() {
 	_ = kingpin.Parse()
 	wd, err := os.Getwd()
-	if exc.Checkerr(err) {
-		os.Exit(-1)
+	if goutils.CheckErr(err) {
+		return
 	}
 	searchDir(filepath.Join(wd, *dir))
 	logging()
