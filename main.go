@@ -143,6 +143,13 @@ func searchDir(dir string) {
 	if goutils.CheckErr(err) {
 		return
 	}
+
+	bs, err := exc.NewCMD("go list -json " + TrimGopath(dir)).Do()
+
+	if err == nil && len(bs) > 0 {
+		imports(bs)
+		pull(errPkgs(bs))
+	}
 	subdirs, err := file.Readdir(-1)
 	if goutils.CheckErr(err) {
 		return
@@ -156,11 +163,6 @@ func searchDir(dir string) {
 			/*go*/ searchDir(filepath.Join(dir, it.Name()))
 		}
 		if strings.HasSuffix(it.Name(), ".go") && !excuted {
-			bs, err := exc.NewCMD("go list -json").Do()
-			if len(bs) > 0 {
-				imports(bs)
-				pull(errPkgs(bs))
-			}
 			b, err := command.Cd(dir).Do()
 			if nil != err {
 				installInfo <- NewInfo(dir, false, goutils.ToString(b))
