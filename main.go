@@ -145,8 +145,7 @@ func searchDir(dir string) {
 	}
 
 	bs, err := exc.NewCMD("go list -json " + TrimGopath(dir)).Do()
-
-	if err == nil && len(bs) > 0 {
+	if !goutils.CheckErr(err) && len(bs) > 0 {
 		imports(bs)
 		pull(errPkgs(bs))
 	}
