@@ -23,7 +23,11 @@ type Info struct {
 }
 
 func TrimGopath(pth string) string {
-	return strings.TrimPrefix(pth, os.Getenv("GOPATH")+"/src/")
+	abspath, err := filepath.Abs(os.Getenv("GOPATH"))
+	if goutils.CheckErr(err) {
+		return pth
+	}
+	return strings.TrimPrefix(pth, abspath+"/src/")
 }
 
 func (i Info) String() string {
@@ -65,7 +69,7 @@ func errPkgs(golist []byte) []string {
 			}
 		}
 		if len(pkgs) > 0 {
-			fmt.Println(cr.HiCyanString("missed import packages:\n"), cr.RedString(displayPkgs(pkgs)))
+			fmt.Println(cr.HiCyanString("  missed import packages:\n"), cr.RedString(displayPkgs(pkgs)))
 		}
 		return pkgs
 	}
@@ -80,7 +84,7 @@ func displayPkgs(pkgs []string) string {
 	return strings.Join(newPkgs, "\n")
 }
 
-func imports(golist []byte) []string {
+func imports(golist []byte, gopathDir string) []string {
 	arrs := jsnm.BytesFmt(golist).Get("Imports").Arr()
 	pkgs := make([]string, 0, 5)
 	for _, arr := range arrs {
@@ -90,7 +94,7 @@ func imports(golist []byte) []string {
 		}
 	}
 	if len(pkgs) > 0 {
-		fmt.Println(cr.HiCyanString("import packages:\n"), cr.HiGreenString(displayPkgs(pkgs)))
+		fmt.Printf("[%s] %s:\n%s\n", cr.CyanString(gopathDir), cr.HiCyanString("import packages"), cr.HiGreenString(displayPkgs(pkgs)))
 	}
 	return pkgs
 }
@@ -143,12 +147,6 @@ func searchDir(dir string) {
 	if goutils.CheckErr(err) {
 		return
 	}
-
-	bs, err := exc.NewCMD("go list -json " + TrimGopath(dir)).Do()
-	if !goutils.CheckErr(err) && len(bs) > 0 {
-		imports(bs)
-		pull(errPkgs(bs))
-	}
 	subdirs, err := file.Readdir(-1)
 	if goutils.CheckErr(err) {
 		return
@@ -158,10 +156,13 @@ func searchDir(dir string) {
 		if strings.EqualFold(it.Name(), ".git") {
 			continue
 		}
-		if it.IsDir() {
-			/*go*/ searchDir(filepath.Join(dir, it.Name()))
-		}
 		if strings.HasSuffix(it.Name(), ".go") && !excuted {
+			gopathDir := TrimGopath(dir)
+			bs, err := exc.NewCMD("go list -json " + gopathDir).Do()
+			if !goutils.CheckErr(err) && len(bs) > 0 {
+				imports(bs, gopathDir)
+				pull(errPkgs(bs))
+			}
 			b, err := command.Cd(dir).Do()
 			if nil != err {
 				installInfo <- NewInfo(dir, false, goutils.ToString(b))
@@ -170,6 +171,9 @@ func searchDir(dir string) {
 			}
 			excuted = true
 			command.Cd("..")
+		}
+		if it.IsDir() {
+			/*go*/ searchDir(filepath.Join(dir, it.Name()))
 		}
 	}
 }
@@ -205,6 +209,7 @@ func main() {
 	_ = kingpin.Parse()
 	wd, err := os.Getwd()
 	if goutils.CheckErr(err) {
+		fmt.Println("???", err, wd)
 		return
 	}
 	searchDir(filepath.Join(wd, *dir))
